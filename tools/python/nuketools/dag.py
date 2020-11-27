@@ -4,6 +4,7 @@ import operator, math, os
 import string
 import random
 
+# I added a couple of customization options in the function. If you'd like it to go back to Dot nodes, and get rid of the icons you grab the latest version of dag.py and change AP_CLASS = 'Dot' AP_ICON = False
 
 # Utilities for enhancing efficiency when interacting with Nuke's Directed Acyclic Graph
 
@@ -245,7 +246,7 @@ def get_closest_node(node):
     for n in nuke.allNodes():
         if n.name() == node.name():
             continue
-        distance = math.sqrt( 
+        distance = math.sqrt(
             math.pow( (node.xpos() - n.xpos()), 2 ) + math.pow( (node.ypos() - n.ypos()), 2 )
         )
         distances[n.name()] = distance
@@ -275,7 +276,7 @@ def paste_to_selected():
     # Select pasted nodes
     select(all_nodes)
     nuke.invertSelection()
-    
+
 
 def align(direction):
     # Align nodes to the farthest outlier in the specified direction.
@@ -314,7 +315,7 @@ def align(direction):
     for i in range(len(sorted_other_axis)):
         node = sorted_other_axis[i][0]
         pos = sorted_other_axis[i][1]
-        if i == 0: 
+        if i == 0:
             distance = 0
             overlapping = False
             prev_pos = pos
@@ -334,7 +335,7 @@ def align(direction):
 
         # Set value into sorted_other_axis also so we access the right value on the next loop
         sorted_other_axis[i][1][other_axis] = new_pos[other_axis]
-        
+
         if align:
             set_pos(node, new_pos[other_axis], target_pos[align])
         else:
@@ -455,7 +456,7 @@ else:
     connection_filter = nuke.INPUTS | nuke.HIDDEN_INPUTS | nuke.EXPRESSIONS
 
 def find_root_nodes(node, results=[], remove_roots_with_inputs=True):
-    # Find all root nodes of node. 
+    # Find all root nodes of node.
     # If remove_roots_with_inputs: remove root nodes with an input (like Roto etc)
     for dependency in node.dependencies():
         if not dependency.dependencies():
@@ -610,7 +611,7 @@ def hlink_create():
     unselect()
     hlinks = []
     for node in nodes:
-        hlink = nuke.createNode('Dot', 'hide_input 1 note_font_size 18', inpanel=False)
+        hlink = nuke.createNode('Dot', 'hide_input 1 note_font_size 24', inpanel=False)
         hlinks.append(hlink)
         hlink.setInput(0, node)
         target_name = node.fullName()
@@ -638,6 +639,17 @@ def dec2hex(dec):
 
 def create_pointer():
     # Create an anchor / pointer set
+
+    # Customization Options
+    # Node class to use for anchor / pointer nodes. Defaults to NoOp but could be a Dot node if you prefer
+    # AP_CLASS = 'NoOp'
+    AP_CLASS = 'Dot'
+
+    # Displays an input / output icon on the node to visually differentiate it from the standard node class
+    #AP_ICON = True
+    AP_ICON = False
+
+
     nodes = nuke.selectedNodes()
     if not nodes:
         return
@@ -650,7 +662,7 @@ def create_pointer():
                 return
 
         randstr = ''.join(random.choice(string.ascii_lowercase) for i in range(4))
-        
+
         topnode = get_topnode(target)
 
         target_label = target['label'].getValue()
@@ -682,7 +694,7 @@ def create_pointer():
                     break
             if 'deep' in node_class:
                 topnode_color = prefs['NodeColourDeepColor'].value()
-        
+
         if len(nodes) == 1:
             # Only prompt the user for info if there is one selected node
             panel = nuke.Panel('Create Pointer')
@@ -699,7 +711,9 @@ def create_pointer():
             target.setSelected(True)
 
         # create anchor node
-        anchor = nuke.createNode('NoOp', 'name ___anchor_{0} icon Output.png label "<font size=7>\[value title]"'.format(randstr))
+
+        anchor = nuke.createNode(AP_CLASS, 'name ___anchor_{0}{1}label "[value title]"'.format(randstr, ' icon Output.png ' if AP_ICON else ' '))
+        #anchor = nuke.createNode(AP_CLASS, 'name ___anchor_{0}{1}label "<font size=7>\[value title]"'.format(randstr, ' icon Output.png ' if AP_ICON else ' '))
         anchor.addKnob(nuke.Tab_Knob('anchor_tab', 'anchor'))
         anchor.addKnob(nuke.String_Knob('title', 'title'))
         anchor['title'].setValue(pointer_title)
@@ -708,11 +722,11 @@ def create_pointer():
         anchor.setSelected(True)
 
         # create pointer node
-        pointer = nuke.createNode('NoOp', 'name ___pointer_{0} hide_input true icon Input.png'.format(randstr))
+        pointer = nuke.createNode(AP_CLASS, 'name ___pointer_{0} hide_input true{1}'.format(randstr, ' icon Input.png ' if AP_ICON else ''))
         pointer.addKnob(nuke.Tab_Knob('pointer_tab', 'pointer'))
         pointer.addKnob(nuke.String_Knob('target', 'target'))
         pointer['target'].setValue(anchor.fullName())
-        pointer['label'].setValue('<font size=7> [if {[exists input.title]} {return [value input.title]}]')
+        pointer['label'].setValue('[if {[exists input.title]} {return [value input.title]}]')
         pointer.addKnob(nuke.PyScript_Knob('connect_to_target', 'connect'))
         pointer['connect_to_target'].setFlag(nuke.STARTLINE)
         pointer.addKnob(nuke.PyScript_Knob('zoom_to_target', 'zoom'))
@@ -796,7 +810,7 @@ def read_from_write():
         if '[' in filepath:
             # contains tcl expression. use evaluate instead.
             filepath_eval = node['file'].evaluate()
-            
+
         dirname = os.path.dirname(filepath)
         filename = os.path.basename(filepath)
         if '#' in filename:
